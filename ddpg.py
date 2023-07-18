@@ -11,14 +11,14 @@ def build_mlp(input_dim, output_dim, n_layers, layer_size, activition='relu'):
     *([nn.Linear(layer_size,layer_size), nn.ReLU()]*(n_layers - 1)),
     nn.Linear(layer_size, output_dim),
   )
-  if activition is 'relu':
+  if activition == 'relu':
     net.append(nn.ReLU())
   else: 
     net.append(nn.Tanh())
   return net
 
 def np2torch(arr):
-  return torch.from_numpy(arr)
+  return torch.from_numpy(arr).float()
 
 class ReplayBuffer:
   def __init__(self, config):
@@ -45,7 +45,7 @@ class ReplayBuffer:
     return states, actions, rewards, next_states, dones
     
 
-class DDPG(nn.Modules):
+class DDPG(nn.Module):
   def __init__(self, observation_size, action_size, config):
     super().__init__()
     self.observation_size = observation_size
@@ -82,23 +82,31 @@ class DDPG(nn.Modules):
   def load_model(self, path='./models/ddpg.pt'):
     self.load_state_dict(torch.load(path))
   
-  def grad_q(self, q_values, targets):
+  def update_q(self, states, actions, rewards, next_states, done):
+    next_states = np2torch(next_states)
+    q_targets = self.compute_q_targets(next_states)
+    targets = rewards + (1 - done) * self.gamma * q_targets
+    targets = np2torch(targets)
+
+    inputs = np2torch(np.hstack([states,actions]))
+    q_values = self.q_network(inputs).squeeze()
+
     loss = torch.nn.functional.mse_loss(q_values, targets)
     self.optimizer_q.zero_grad()
     loss.backward()
     self.optimizer_q.step()
   
-  def grad_mu(self, states):
+  def update_mu(self, states):
     states = np2torch(states)
     mus = self.mu_network(states)
-    inputs = torch.stack([states, mus], dim=1)
+    inputs = torch.cat([states, mus], dim=1)
     qs = self.q_network(inputs)
     loss = -qs.mean()
     self.optimizer_mu.zero_grad()
     loss.backward()
     self.optimizer_mu.step()
   
-  def update_target(self):
+  def update_target_networks(self):
     with torch.no_grad():
       for param1, param2 in zip(self.q_network.parameters(), self.target_q.parameters()):
         param2.copy_(self.rho * param2 + (1.0 - self.rho) * param1)
@@ -106,6 +114,13 @@ class DDPG(nn.Modules):
     with torch.no_grad():
       for param1, param2 in zip(self.mu_network.parameters(), self.target_mu.parameters()):
         param2.copy_(self.rho * param2 + (1.0 - self.rho) * param1)
+  
+  def compute_q_targets(self, states):
+    mu_targ = self.target_mu(states).detach().cpu().numpy() * self.config.max_action
+    mu_targ = np2torch(mu_targ)
+    inputs = torch.cat([states, mu_targ], dim=1)
+    out = self.target_q(inputs).squeeze()
+    return out.detach().cpu().numpy()
 
 
   
