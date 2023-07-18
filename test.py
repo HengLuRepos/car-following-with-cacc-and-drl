@@ -4,16 +4,16 @@ import torch
 import gymnasium as gym
 import numpy as np
 
-env = gym.make("InvertedPendulum-v4")
+env = gym.make("HalfCheetah-v4")
 A_MIN = env.action_space.low
 A_MAX = env.action_space.high
 config = Config(action_max=A_MAX)
 buffer = ReplayBuffer(config)
-ddpg = DDPG(4, 1, config)
+ddpg = DDPG(17, 6, config)
 
 action_size = env.action_space.shape[0]
 all_ep_rewards = []
-for ep in range(1000):
+for ep in range(5000):
     state, info = env.reset()
     for i in range(config.start_steps):
         state = np2torch(state)
@@ -26,7 +26,7 @@ for ep in range(1000):
             state, info = env.reset()
         else:
             state = next_state
-    for i in range(15):
+    for i in range(50):
         states, actions, rewards, next_states, dones = buffer.sample()
         ddpg.update_q(states, actions, rewards, next_states, dones)
         ddpg.update_mu(states)

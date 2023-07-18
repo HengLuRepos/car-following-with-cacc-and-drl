@@ -20,14 +20,14 @@ class Vehicle:
                                        shape=(1,),
                                        dtype=np.float32)
     ob_low = np.array([
-      0,            #distance
       0,            #velocity
-      -self.max_acc,
+      -self.max_v,  #rel velocity
+      -self.max_acc,#acc
       0,            #rel d
     ])
 
     ob_high = np.array([
-      np.inf,
+      self.max_v,
       self.max_v,
       self.max_acc,
       np.inf
@@ -45,8 +45,9 @@ class Vehicle:
     self.acc = 0
     self.rel_d = 2 #initial distance: 2m
     self.num_steps = 0
-    state = np.array([self.distance, self.v, self.acc, self.rel_d])
-    info = None
+    self.rel_v = 0
+    state = np.array([self.v, self.rel_v, self.acc, self.rel_d])
+    info = {'distance': self.distance}
     return state, info
 
   
@@ -63,15 +64,17 @@ class Vehicle:
     self.distance += acc / 2 + self.v
     self.rel_d -= rel_v + rel_acc / 2
     safe_distance = 2 + self.max_acc * self.tau**2 / 2 + self.v * self.tau
+    self.v += acc
+    self.rel_v = rel_v + rel_acc
     self.num_steps += 1
-    def get_reward(dist, safe_dist, rel_d):
+    def get_reward(rel_v, safe_dist, rel_d):
       return 0
     
     reward = get_reward(self.distance, safe_distance, self.rel_d)
     terminated = self.rel_d <= 0 #collision
     truncated = self.num_steps >= 1000
-    next_state = np.array([self.distance, self.v, self.acc, self.rel_d])
-    info = None
+    next_state = np.array([self.v, self.rel_v, self.acc, self.rel_d])
+    info = {'distance': self.distance}
 
     return next_state, reward, terminated, truncated, info
 
@@ -105,12 +108,5 @@ class LeadingVehicle(Vehicle):
     self.num_steps = 0
     state = (self.distance, self.v, self.acc)
     return state
-  
-ld = LeadingVehicle()
-distance, v0, acc0 = ld.reset()
-done = False
-while not done:
-  next_state, truncated = ld.step()
-  dist, v, acc = next_state
-  done = truncated
+
 
