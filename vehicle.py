@@ -63,7 +63,7 @@ class Vehicle:
     rel_acc = self.acc - pre_acc
     self.distance += acc / 2 + self.v
     self.rel_d -= rel_v + rel_acc / 2
-    safe_distance = 2 + self.max_acc * self.tau**2 / 2 + self.v * self.tau
+    safe_distance = 2 + self.v * self.tau - self.max_acc * self.tau**2 / 2
     self.v += acc
     self.rel_v = rel_v + rel_acc
     self.num_steps += 1
