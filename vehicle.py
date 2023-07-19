@@ -68,7 +68,7 @@ class Vehicle:
     self.rel_v = rel_v + rel_acc
     self.num_steps += 1
     def get_reward(rel_v, safe_dist, rel_d):
-      return 0
+      return -np.abs(rel_v) - np.abs(rel_d - safe_dist)
     
     reward = get_reward(self.distance, safe_distance, self.rel_d)
     terminated = self.rel_d <= 0 #collision
