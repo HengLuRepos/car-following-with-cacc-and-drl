@@ -1,132 +1,226 @@
 import torch
-from torch import nn
-from collections import deque
-from vehicle import  Vehicle, LeadingVehicle
-import random
+import torch.nn as nn
+import torch.distributions as ptd
 import numpy as np
-def build_mlp(input_dim, output_dim, n_layers, layer_size, activition='relu'):
-  net = nn.Sequential(
-    nn.Linear(input_dim, layer_size),
-    nn.ReLU(),
-    *([nn.Linear(layer_size,layer_size), nn.ReLU()]*(n_layers - 1)),
-    nn.Linear(layer_size, output_dim),
-  )
-  if activition == 'relu':
-    net.append(nn.ReLU())
-  else: 
-    net.append(nn.Tanh())
-  return net
+import gymnasium as gym
+import torch.nn.functional as F
+from collections import deque
+import random
+"""
+    This implementaion follows the DDPG used in TD3 paper.
+"""
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+def np2torch(np_arr):
+    np_arr = torch.from_numpy(np_arr) if isinstance(np_arr,np.ndarray) else np_arr
+    return np_arr.to(device).float()
 
-def np2torch(arr):
-  return torch.from_numpy(arr).float()
+class Actor(nn.Module):
+    def __init__(self, ob_dim, act_dim, config):
+        super().__init__()
+        self.config = config
+        self.a_low = self.config.a_low
+        self.a_high = self.config.a_high
+        self.explore_noise = self.config.explore_noise
+        self.tau = self.config.tau
+
+        self.l1 = nn.Linear(ob_dim, 256)
+        self.l2 = nn.Linear(256, 256)
+        self.l3 = nn.Linear(256, act_dim)
+
+        self.init_weights()
+
+    def init_weights(self):
+        nn.init.xavier_normal_(self.l1.weight)
+        nn.init.xavier_normal_(self.l2.weight)
+        nn.init.xavier_normal_(self.l3.weight)
+
+    def forward(self, ob):
+        out = F.relu(self.l1(ob))
+        out = F.relu(self.l2(out))
+        out = F.tanh(self.l3(out)) * self.a_high
+        return out
+    
+    def explore(self, state):
+        state = np2torch(state)
+        action = self(state)
+        noise = torch.normal(mean=0.0, std=self.explore_noise, size=action.size(), device=device)
+        out = torch.clip(action + noise, self.a_low, self.a_high)
+        return out
+    
+    def soft_update(self, original):
+        with torch.no_grad():
+            for param1, param2 in zip(self.parameters(), original.parameters()):
+                param1.copy_(param2 * self.tau + param1 * (1.0 - self.tau))
+    def copy(self, original):
+        with torch.no_grad():
+            for param1, param2 in zip(self.parameters(), original.parameters()):
+                param1.copy_(param2)
+
+class QNet(nn.Module):
+    def __init__(self, ob_dim, act_dim, tau):
+        super().__init__()
+        self.tau = tau
+        self.l1 = nn.Linear(ob_dim + act_dim, 256)
+        self.l2 = nn.Linear(256, 256)
+        self.l3 = nn.Linear(256, 1)
+    def forward(self, ob, act):
+        inputs = torch.cat((ob, act), 1)
+        out = F.relu(self.l1(inputs))
+        out = F.relu(self.l2(out))
+        out = self.l3(out)
+        return out.squeeze()
+    
+    def soft_update(self, original):
+        with torch.no_grad():
+            for param1, param2 in zip(self.parameters(), original.parameters()):
+                param1.copy_(param2 * self.tau + param1 * (1.0 - self.tau))
+    def copy(self, original):
+        with torch.no_grad():
+            for param1, param2 in zip(self.parameters(), original.parameters()):
+                param1.copy_(param2)
 
 class ReplayBuffer:
-  def __init__(self, config):
-    self.max_len= config.buffer_size
-    self.batch_size = config.batch_size
-    self.memory = deque(maxlen=self.max_len)
-  def remember(self, state, action, reward, next_state, done):
-    self.memory.append((state, action, reward, next_state, done))
-  
-  def sample(self):
-    minibatch = random.sample(self.memory, self.batch_size)
-    states, actions, rewards, next_states, dones = [], [], [], [], []
-    for state, action, reward, next_state, done in minibatch:
-      states.append(state)
-      actions.append(action)
-      rewards.append(reward)
-      next_states.append(next_state)
-      dones.append(done)
-    states = np.stack(states)
-    actions = np.stack(actions)
-    rewards = np.stack(rewards)
-    next_states = np.stack(next_states)
-    dones = np.stack(dones)
-    return states, actions, rewards, next_states, dones
-    
+    def __init__(self, config):
+        self.max_len = config.buffer_size
+        self.batch_size = config.batch_size
+        self.memory = deque(maxlen=self.max_len) if self.max_len is not None else deque()
+    def remember(self, state, action, reward, next_state, done):
+        self.memory.append((state, action, reward, next_state, done))
+
+    def sample(self):
+        minibatch = random.sample(self.memory, self.batch_size)
+        states, actions, rewards, next_states, dones = [], [], [], [], []
+        for state, action, reward, next_state, done in minibatch:
+            states.append(state)
+            actions.append(action)
+            rewards.append(reward)
+            next_states.append(next_state)
+            dones.append(done)
+        states = np.stack(states)
+        actions = np.stack(actions)
+        rewards = np.stack(rewards)
+        next_states = np.stack(next_states)
+        dones = np.stack(dones)
+        return states, actions, rewards, next_states, dones
 
 class DDPG(nn.Module):
-  def __init__(self, observation_size, action_size, config):
-    super().__init__()
-    self.observation_size = observation_size
-    self.action_size = action_size
-    self.config = config
-    self.gamma = self.config.gamma
-    self.lr = self.config.lr
-    self.rho = self.config.rho
-    self.q_network = build_mlp(self.observation_size + self.action_size,
-                               1, 
-                               self.config.n_layers, 
-                               self.config.layer_size)
-    self.target_q = build_mlp(self.observation_size + self.action_size,
-                              1, 
-                              self.config.n_layers, 
-                              self.config.layer_size)
-    self.mu_network = build_mlp(self.observation_size,
-                                self.action_size,
-                                self.config.n_layers,
-                                self.config.layer_size,
-                                activition='tanh')
-    self.target_mu =  build_mlp(self.observation_size,
-                                self.action_size,
-                                self.config.n_layers,
-                                self.config.layer_size,
-                                activition='tanh')
-    self.target_q.load_state_dict(self.q_network.state_dict())
-    self.target_mu.load_state_dict(self.mu_network.state_dict())
+    def __init__(self, env, config):
+        super().__init__()
+        self.env = env
+        self.config = config
+        self.seed = self.config.seed
+        
+        torch.manual_seed(self.seed)
+        np.random.seed(seed=self.seed)
+        self.env.reset(seed=self.seed)
+        self.env.action_space.seed(self.seed)
 
-    self.optimizer_q = torch.optim.Adam(self.q_network.parameters(), lr=self.lr)
-    self.optimizer_mu = torch.optim.Adam(self.mu_network.parameters(), lr=self.lr)
-  def save_model(self):
-    torch.save(self.state_dict(), './models/ddpg.pt')
-  def load_model(self, path='./models/ddpg.pt'):
-    self.load_state_dict(torch.load(path))
-  
-  def update_q(self, states, actions, rewards, next_states, done):
-    next_states = np2torch(next_states)
-    q_targets = self.compute_q_targets(next_states)
-    targets = rewards + (1 - done) * self.gamma * q_targets
-    targets = np2torch(targets)
+        self.gamma = self.config.gamma
+        self.ob_dim = self.env.observation_space.shape[0]
+        self.act_dim = self.env.action_space.shape[0]
 
-    inputs = np2torch(np.hstack([states,actions]))
-    q_values = self.q_network(inputs).squeeze()
+        self.actor = Actor(self.ob_dim, self.act_dim, self.config).to(device)
+        self.actor_target = Actor(self.ob_dim, self.act_dim, self.config).to(device)
+        self.actor_target.copy(self.actor)
 
-    loss = torch.nn.functional.mse_loss(q_values, targets)
-    self.optimizer_q.zero_grad()
-    loss.backward()
-    self.optimizer_q.step()
-  
-  def update_mu(self, states):
-    states = np2torch(states)
-    mus = self.mu_network(states)
-    inputs = torch.cat([states, mus], dim=1)
-    qs = self.q_network(inputs)
-    loss = -qs.mean()
-    self.optimizer_mu.zero_grad()
-    loss.backward()
-    self.optimizer_mu.step()
-  
-  def update_target_networks(self):
-    with torch.no_grad():
-      for param1, param2 in zip(self.q_network.parameters(), self.target_q.parameters()):
-        param2.copy_(self.rho * param2 + (1.0 - self.rho) * param1)
+        self.q = QNet(self.ob_dim, self.act_dim, self.config.tau).to(device)
+        self.q_targ = QNet(self.ob_dim, self.act_dim, self.config.tau).to(device)
+        self.q_targ.copy(self.q)
+
+        self.buffer = ReplayBuffer(self.config)
+
+        self.actor_optim = torch.optim.Adam(self.actor.parameters(), lr=self.config.pi_lr)
+        self.q_optim = torch.optim.Adam(self.q.parameters(), lr=self.config.v_lr)
+
+        self.num_iter = 0
     
-    with torch.no_grad():
-      for param1, param2 in zip(self.mu_network.parameters(), self.target_mu.parameters()):
-        param2.copy_(self.rho * param2 + (1.0 - self.rho) * param1)
-  
-  def compute_q_targets(self, states):
-    mu_targ = self.target_mu(states).detach().cpu().numpy() * self.config.max_action
-    mu_targ = np2torch(mu_targ)
-    inputs = torch.cat([states, mu_targ], dim=1)
-    out = self.target_q(inputs).squeeze()
-    return out.detach().cpu().numpy()
-
-
-  
-  
-  
-  
-
-
+    def compute_targets(self, next_states, rewards, done):
+        next_states = np2torch(next_states)
+        rewards = np2torch(rewards)
+        done = np2torch(done)
+        mu = self.actor_target(next_states)
+        q_targs = self.q_targ(next_states, mu)
+        targets = rewards + self.gamma * (1.0 - done) * q_targs
+        return targets
     
+    def update_q(self, states, actions, next_states, rewards, done):
+        states = np2torch(states)
+        actions = np2torch(actions)
+        targets = self.compute_targets(next_states, rewards, done)
+
+        q = self.q(states, actions)
+        loss = F.mse_loss(q, targets.detach())
+        self.q_optim.zero_grad()
+        loss.backward()
+        self.q_optim.step()
+
+    def update_actor(self, states):
+        states = np2torch(states)
+        mu = self.actor(states)
+        loss = -torch.mean(self.q(states, mu))
+        self.actor_optim.zero_grad()
+        loss.backward()
+        self.actor_optim.step()
+    
+    def train_agent(self):
+        episode_reward = 0
+        episode_timesteps = 0
+        episode_num = 0
+        state, _ = self.env.reset()
+        done = False
+        for t in range(self.config.max_timestamp):
+            episode_timesteps += 1
+            if t < self.config.start_steps:
+                action = self.env.action_space.sample()
+            else:
+                action = self.actor.explore(state).detach().cpu().numpy()
+            next_state, reward, terminated, truncated, _ = self.env.step(action)
+            done = terminated or truncated
+            self.buffer.remember(state, action, reward, next_state, done)
+            state = next_state
+            episode_reward += reward
+
+            if t >= self.config.start_steps:
+                self.train_iter()
+            if done:
+                print(f"Total T: {t+1} Episode Num: {episode_num+1} Episode T: {episode_timesteps} Reward: {episode_reward:.3f}")
+                state, _ = self.env.reset()
+                done = False
+                episode_reward = 0
+                episode_timesteps = 0
+                episode_num += 1
+            if (t + 1) % self.config.eval_freq == 0:
+                self.evaluation()
+                self.save_model(f"models/TD3-{self.config.env_name}-seed-{self.seed}.pt")
+
+    def train_iter(self):
+        self.num_iter += 1
+        states, actions, rewards, next_states, done = self.buffer.sample()
+        self.update_q(states, actions, next_states, rewards, done)
+        
+        self.update_actor(states)
+        self.q_targ.soft_update(self.q)
+        self.actor_target.soft_update(self.actor)
+
+    def evaluation(self):
+        env = gym.make(self.config.env)
+        ep_reward = 0
+        state, _ = env.reset(seed = self.config.seed + 100)
+        for i in range(self.config.eval_epochs):
+            state, _ = env.reset()
+            done = False
+            while not done:
+                action = self.actor(np2torch(state)).detach().cpu().numpy()
+                state, reward, terminated, truncated, _ = env.step(action)
+                done = terminated or truncated
+                ep_reward += reward
+            state, _ = env.reset()
+            done = False
+        print("---------------------------------------")
+        print(f"Evaluation over {self.config.eval_epochs} episodes: {ep_reward/self.config.eval_epochs:.3f}")
+        print("---------------------------------------")
+    
+    def save_model(self, path):
+        torch.save(self.state_dict(), path)
+    def load_model(self, path):
+        self.load_state_dict(torch.load(path))
