@@ -70,7 +70,7 @@ class Vehicle:
     def get_reward(rel_v, safe_dist, rel_d):
       return -np.abs(rel_v) - np.abs(rel_d - safe_dist)
     
-    reward = get_reward(self.distance, safe_distance, self.rel_d)
+    reward = get_reward(rel_v, safe_distance, self.rel_d)
     terminated = self.rel_d <= 0 #collision
     truncated = self.num_steps >= 1000
     next_state = np.array([self.v, self.rel_v, self.acc, self.rel_d])
