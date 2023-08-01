@@ -162,63 +162,63 @@ class DDPG(nn.Module):
         loss.backward()
         self.actor_optim.step()
     
-    def train_agent(self):
-        episode_reward = 0
-        episode_timesteps = 0
-        episode_num = 0
-        state, _ = self.env.reset()
-        done = False
-        for t in range(self.config.max_timestamp):
-            episode_timesteps += 1
-            if t < self.config.start_steps:
-                action = self.env.action_space.sample()
-            else:
-                action = self.actor.explore(state).detach().cpu().numpy()
-            next_state, reward, terminated, truncated, _ = self.env.step(action)
-            done = terminated or truncated
-            self.buffer.remember(state, action, reward, next_state, done)
-            state = next_state
-            episode_reward += reward
+    # def train_agent(self):
+    #     episode_reward = 0
+    #     episode_timesteps = 0
+    #     episode_num = 0
+    #     state, _ = self.env.reset()
+    #     done = False
+    #     for t in range(self.config.max_timestamp):
+    #         episode_timesteps += 1
+    #         if t < self.config.start_steps:
+    #             action = self.env.action_space.sample()
+    #         else:
+    #             action = self.actor.explore(state).detach().cpu().numpy()
+    #         next_state, reward, terminated, truncated, _ = self.env.step(action)
+    #         done = terminated or truncated
+    #         self.buffer.remember(state, action, reward, next_state, done)
+    #         state = next_state
+    #         episode_reward += reward
 
-            if t >= self.config.start_steps:
-                self.train_iter()
-            if done:
-                print(f"Total T: {t+1} Episode Num: {episode_num+1} Episode T: {episode_timesteps} Reward: {episode_reward:.3f}")
-                state, _ = self.env.reset()
-                done = False
-                episode_reward = 0
-                episode_timesteps = 0
-                episode_num += 1
-            if (t + 1) % self.config.eval_freq == 0:
-                self.evaluation()
-                self.save_model(f"models/TD3-{self.config.env_name}-seed-{self.seed}.pt")
+    #         if t >= self.config.start_steps:
+    #             self.train_iter()
+    #         if done:
+    #             print(f"Total T: {t+1} Episode Num: {episode_num+1} Episode T: {episode_timesteps} Reward: {episode_reward:.3f}")
+    #             state, _ = self.env.reset()
+    #             done = False
+    #             episode_reward = 0
+    #             episode_timesteps = 0
+    #             episode_num += 1
+    #         if (t + 1) % self.config.eval_freq == 0:
+    #             self.evaluation()
+    #             self.save_model(f"models/TD3-{self.config.env_name}-seed-{self.seed}.pt")
 
-    def train_iter(self):
-        self.num_iter += 1
-        states, actions, rewards, next_states, done = self.buffer.sample()
-        self.update_q(states, actions, next_states, rewards, done)
+    # def train_iter(self):
+    #     self.num_iter += 1
+    #     states, actions, rewards, next_states, done = self.buffer.sample()
+    #     self.update_q(states, actions, next_states, rewards, done)
         
-        self.update_actor(states)
-        self.q_targ.soft_update(self.q)
-        self.actor_target.soft_update(self.actor)
+    #     self.update_actor(states)
+    #     self.q_targ.soft_update(self.q)
+    #     self.actor_target.soft_update(self.actor)
 
-    def evaluation(self):
-        env = gym.make(self.config.env)
-        ep_reward = 0
-        state, _ = env.reset(seed = self.config.seed + 100)
-        for i in range(self.config.eval_epochs):
-            state, _ = env.reset()
-            done = False
-            while not done:
-                action = self.actor(np2torch(state)).detach().cpu().numpy()
-                state, reward, terminated, truncated, _ = env.step(action)
-                done = terminated or truncated
-                ep_reward += reward
-            state, _ = env.reset()
-            done = False
-        print("---------------------------------------")
-        print(f"Evaluation over {self.config.eval_epochs} episodes: {ep_reward/self.config.eval_epochs:.3f}")
-        print("---------------------------------------")
+    # def evaluation(self):
+    #     env = gym.make(self.config.env)
+    #     ep_reward = 0
+    #     state, _ = env.reset(seed = self.config.seed + 100)
+    #     for i in range(self.config.eval_epochs):
+    #         state, _ = env.reset()
+    #         done = False
+    #         while not done:
+    #             action = self.actor(np2torch(state)).detach().cpu().numpy()
+    #             state, reward, terminated, truncated, _ = env.step(action)
+    #             done = terminated or truncated
+    #             ep_reward += reward
+    #         state, _ = env.reset()
+    #         done = False
+    #     print("---------------------------------------")
+    #     print(f"Evaluation over {self.config.eval_epochs} episodes: {ep_reward/self.config.eval_epochs:.3f}")
+    #     print("---------------------------------------")
     
     def save_model(self, path):
         torch.save(self.state_dict(), path)

@@ -39,7 +39,7 @@ class Vehicle:
       dtype=np.float32
     )
 
-  def reset(self):
+  def reset(self, seed):
     self.distance = 0
     self.v = 0
     self.acc = 0
@@ -55,9 +55,10 @@ class Vehicle:
     #1 step -> 1 sec
     acc, pre_v, pre_acc = action
     """
-    pre_v: velocity of preceding vehicle(before accelration)
-    pre_acc: acc of preceding vehicle(after changing)
+    pre_v: velocity of preceding vehicle
+    pre_acc: acc of preceding vehicle
     """
+    pre_v -= pre_acc
     self.acc = acc
     rel_v = self.v - pre_v
     rel_acc = self.acc - pre_acc
@@ -81,17 +82,17 @@ class Vehicle:
 
 
 class LeadingVehicle(Vehicle):
-  def __init__(self, epoch_steps=100):
+  def __init__(self, iter_steps=100):
     super().__init__()
-    self.epoch_steps = epoch_steps
+    self.iter_steps = iter_steps
     self.acc1 = self.max_acc / 3
     self.acc1_step = math.floor(self.max_v / self.acc1)
     self.acc2 = self.max_acc / 2
     self.acc2_step = math.floor(self.max_v / self.acc2)
   def step(self):
-    if self.num_steps % self.epoch_steps < self.acc1_step:
+    if self.num_steps % self.iter_steps < self.acc1_step:
       self.acc = self.acc1
-    elif self.epoch_steps - (self.num_steps % self.epoch_steps) <= self.acc2_step:
+    elif self.iter_steps - (self.num_steps % self.iter_steps) <= self.acc2_step:
       self.acc = -self.acc2
     else:
       self.acc = 0
