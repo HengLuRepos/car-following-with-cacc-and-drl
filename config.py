@@ -7,6 +7,9 @@ class Config:
         self.pi_lr=5e-4
         self.v_lr = 5e-4
         self.explore_noise=0.1
+        self.target_noise=0.2
+        self.noise_clip=0.5
+        self.policy_delay=2
         self.seed=0
 
         self.start_steps = 5000
@@ -14,7 +17,9 @@ class Config:
         self.tau = tau
         self.max_v = max_v
 
-        self.max_timestamp = 100000
+        self.max_timestamp = 1000000
         self.a_low = -self.max_acc
         self.a_high = self.max_acc
+        self.eval_freq = 5000
+        self.eval_epoch = 1
         
