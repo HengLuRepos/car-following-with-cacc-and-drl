@@ -53,8 +53,11 @@ class Vehicle:
     info = {'distance': self.distance}
     return state, info
 
-  def update(self, pre_ob):
-    self.rel_acc = self.acc - pre_ob[2]
+  def update(self, pre_acc):
+    self.rel_acc = self.acc - pre_acc
+    return np.array([self.v, self.rel_v, self.acc, self.rel_acc, self.rel_d])
+  def get_state(self):
+    return np.array([self.v, self.rel_v, self.acc, self.rel_acc, self.rel_d])
   
   def step(self, acc):
     #1 step -> 1 sec
@@ -79,32 +82,28 @@ class Vehicle:
 
 
 class LeadingVehicle(Vehicle):
-  def __init__(self, iter_steps=100):
-    super().__init__()
+  def __init__(self, iter_steps=100, max_acc=3, tau=0.8, max_v=30):
+    super().__init__(max_acc=max_acc, tau=tau, max_v=max_v)
     self.iter_steps = iter_steps
     self.acc1 = self.max_acc / 3
     self.acc1_step = math.floor(self.max_v / self.acc1)
     self.acc2 = self.max_acc / 2
     self.acc2_step = math.floor(self.max_v / self.acc2)
   def step(self):
-    if self.num_steps % self.iter_steps < self.acc1_step:
-      self.acc = self.acc1
-    elif self.iter_steps - (self.num_steps % self.iter_steps) <= self.acc2_step:
-      self.acc = -self.acc2
-    else:
-      self.acc = 0
+    self.acc = self.get_acc()
     self.num_steps += 1
     self.distance += self.acc / 2 + self.v
     self.v += self.acc
-    next_state = (self.distance, self.v, self.acc)
+    next_state = np.array([self.v, self.rel_v, self.acc, self.rel_acc, self.rel_d])
     truncated = self.num_steps >= 1000
     return next_state, truncated
-  def reset(self):
-    self.distance = 0
-    self.v = 0
-    self.acc = 0
-    self.num_steps = 0
-    state = (self.distance, self.v, self.acc)
-    return state
-
+  def get_acc(self):
+    num_steps = self.num_steps
+    if num_steps % self.iter_steps < self.acc1_step:
+      acc = self.acc1
+    elif self.iter_steps - (num_steps % self.iter_steps) <= self.acc2_step:
+      acc = -self.acc2
+    else:
+      acc = 0
+    return acc
 
