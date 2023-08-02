@@ -8,3 +8,7 @@ NUM_OF_FOLLOWING_CARS = 3
 lead = LeadingVehicle(iter_steps=100)
 followings = [Vehicle(max_acc=config.max_acc, tau=config.tau, max_v=config.max_v)] * NUM_OF_FOLLOWING_CARS
 ddpg = DDPG(Vehicle(max_acc=config.max_acc, tau=config.tau, max_v=config.max_v), config)
+
+
+
+

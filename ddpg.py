@@ -193,32 +193,32 @@ class DDPG(nn.Module):
     #             self.evaluation()
     #             self.save_model(f"models/TD3-{self.config.env_name}-seed-{self.seed}.pt")
 
-    # def train_iter(self):
-    #     self.num_iter += 1
-    #     states, actions, rewards, next_states, done = self.buffer.sample()
-    #     self.update_q(states, actions, next_states, rewards, done)
+    def train_iter(self):
+        self.num_iter += 1
+        states, actions, rewards, next_states, done = self.buffer.sample()
+        self.update_q(states, actions, next_states, rewards, done)
         
-    #     self.update_actor(states)
-    #     self.q_targ.soft_update(self.q)
-    #     self.actor_target.soft_update(self.actor)
+        self.update_actor(states)
+        self.q_targ.soft_update(self.q)
+        self.actor_target.soft_update(self.actor)
 
-    # def evaluation(self):
-    #     env = gym.make(self.config.env)
-    #     ep_reward = 0
-    #     state, _ = env.reset(seed = self.config.seed + 100)
-    #     for i in range(self.config.eval_epochs):
-    #         state, _ = env.reset()
-    #         done = False
-    #         while not done:
-    #             action = self.actor(np2torch(state)).detach().cpu().numpy()
-    #             state, reward, terminated, truncated, _ = env.step(action)
-    #             done = terminated or truncated
-    #             ep_reward += reward
-    #         state, _ = env.reset()
-    #         done = False
-    #     print("---------------------------------------")
-    #     print(f"Evaluation over {self.config.eval_epochs} episodes: {ep_reward/self.config.eval_epochs:.3f}")
-    #     print("---------------------------------------")
+    def evaluation(self):
+        env = gym.make(self.config.env)
+        ep_reward = 0
+        state, _ = env.reset(seed = self.config.seed + 100)
+        for i in range(self.config.eval_epochs):
+            state, _ = env.reset()
+            done = False
+            while not done:
+                action = self.actor(np2torch(state)).detach().cpu().numpy()
+                state, reward, terminated, truncated, _ = env.step(action)
+                done = terminated or truncated
+                ep_reward += reward
+            state, _ = env.reset()
+            done = False
+        print("---------------------------------------")
+        print(f"Evaluation over {self.config.eval_epochs} episodes: {ep_reward/self.config.eval_epochs:.3f}")
+        print("---------------------------------------")
     
     def save_model(self, path):
         torch.save(self.state_dict(), path)

@@ -23,6 +23,7 @@ class Vehicle:
       0,            #velocity
       -self.max_v,  #rel velocity
       -self.max_acc,#acc
+      -self.max_acc,#rel acc
       0,            #rel d
     ])
 
@@ -30,6 +31,7 @@ class Vehicle:
       self.max_v,
       self.max_v,
       self.max_acc,
+      2 * self.max_acc,
       np.inf
     ])
 
@@ -46,35 +48,30 @@ class Vehicle:
     self.rel_d = 2 #initial distance: 2m
     self.num_steps = 0
     self.rel_v = 0
-    state = np.array([self.v, self.rel_v, self.acc, self.rel_d])
+    self.rel_acc = 0
+    state = np.array([self.v, self.rel_v, self.acc, self.rel_acc, self.rel_d])
     info = {'distance': self.distance}
     return state, info
 
+  def update(self, pre_ob):
+    self.rel_acc = self.acc - pre_ob[2]
   
-  def step(self, action):
+  def step(self, acc):
     #1 step -> 1 sec
-    acc, pre_v, pre_acc = action
-    """
-    pre_v: velocity of preceding vehicle
-    pre_acc: acc of preceding vehicle
-    """
-    pre_v -= pre_acc
     self.acc = acc
-    rel_v = self.v - pre_v
-    rel_acc = self.acc - pre_acc
-    self.distance += acc / 2 + self.v
-    self.rel_d -= rel_v + rel_acc / 2
+    self.distance += self.acc / 2 + self.v
+    self.rel_d -= self.rel_v + self.rel_acc / 2
     safe_distance = 2 + self.v * self.tau - self.max_acc * self.tau**2 / 2
     self.v += acc
-    self.rel_v = rel_v + rel_acc
+    self.rel_v += self.rel_acc
     self.num_steps += 1
     def get_reward(rel_v, safe_dist, rel_d):
       return -np.abs(rel_v) - np.abs(rel_d - safe_dist)
     
-    reward = get_reward(rel_v, safe_distance, self.rel_d)
+    reward = get_reward(self.rel_v, safe_distance, self.rel_d)
     terminated = self.rel_d <= 0 #collision
     truncated = self.num_steps >= 1000
-    next_state = np.array([self.v, self.rel_v, self.acc, self.rel_d])
+    next_state = np.array([self.v, self.rel_v, self.acc, self.rel_acc, self.rel_d])
     info = {'distance': self.distance}
 
     return next_state, reward, terminated, truncated, info
