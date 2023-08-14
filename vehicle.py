@@ -100,7 +100,7 @@ class Vehicle:
     return reward
 
 
-
+#60 80 100 120
 class LeadingVehicle(Vehicle):
   def __init__(self, iter_steps=100, max_acc=3, tau=0.8, max_v=30):
     super().__init__(max_acc=max_acc, tau=tau, max_v=max_v)
