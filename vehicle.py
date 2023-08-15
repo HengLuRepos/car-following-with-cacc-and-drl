@@ -102,41 +102,54 @@ class Vehicle:
 
 #60 80 100 120
 class LeadingVehicle(Vehicle):
-  def __init__(self, iter_steps=100, max_acc=3, tau=0.8, max_v=30):
+  def __init__(self, plat_steps=120, max_acc=3, tau=0.8, max_v=33.3):
     super().__init__(max_acc=max_acc, tau=tau, max_v=max_v)
-    self.iter_steps = iter_steps
-    self.acc1 = self.max_acc / 3
-    self.acc1_step = math.floor(self.max_v / self.acc1)
-    self.acc2 = self.max_acc / 2
-    self.acc2_step = math.floor(self.max_v / self.acc2)
+    self.plat_steps = plat_steps
+    self.acc1 = 16.67 / 10 #10s 0->60km/h
+    self.acc1_step = 10
+    self.acc2 = 5.55 / 2   #2s 60->80
+    self.acc2_step = 2
+    self.mid_plat = 900 - (self.acc1_step * 2 + self.acc2_step * 6 + self.plat_steps * 6)
   def step(self):
     self.acc = self.get_acc()
     self.num_steps += 1
     self.distance += self.acc / 2 + self.v
     self.v += self.acc
-    next_state = np.array([self.v, self.pre_v, self.acc, self.pre_acc, self.rel_d])
+    next_state = np.array([round(self.v, 2), self.pre_v, self.acc, self.pre_acc, self.rel_d])
     truncated = self.num_steps >= 1000
     return next_state, truncated
   def get_acc(self):
     num_steps = self.num_steps
-    if num_steps % self.iter_steps < self.acc1_step:
+    if num_steps < self.acc1_step:
       acc = self.acc1
-    elif self.iter_steps - (num_steps % self.iter_steps) <= self.acc2_step:
+    elif num_steps >= self.plat_steps + self.acc1_step and num_steps < self.plat_steps + self.acc1_step + self.acc2_step:
+      acc = self.acc2
+    elif num_steps >= 2*self.plat_steps + self.acc1_step + self.acc2_step and num_steps < 2 * self.plat_steps + self.acc1_step + 2 * self.acc2_step:
+      acc = self.acc2
+    elif num_steps >= 3*self.plat_steps + self.acc1_step + 2*self.acc2_step and num_steps < 3 * self.plat_steps + self.acc1_step + 3 * self.acc2_step:
+      acc = self.acc2
+    elif num_steps >= 3 * self.plat_steps + self.acc1_step + 3 * self.acc2_step + self.mid_plat and num_steps < 3 * self.plat_steps + self.acc1_step + 4 * self.acc2_step + self.mid_plat:
       acc = -self.acc2
+    elif num_steps >= 4 * self.plat_steps + self.acc1_step + 4 * self.acc2_step + self.mid_plat and num_steps < 4 * self.plat_steps + self.acc1_step + 5 * self.acc2_step + self.mid_plat:
+      acc = -self.acc2
+    elif num_steps >= 5 * self.plat_steps + self.acc1_step + 5 * self.acc2_step + self.mid_plat and num_steps < 5 * self.plat_steps + self.acc1_step + 6 * self.acc2_step + self.mid_plat:
+      acc = -self.acc2
+    elif num_steps >= 6 * self.plat_steps + self.acc1_step + 6 * self.acc2_step + self.mid_plat and num_steps < 6 * self.plat_steps + 2 * self.acc1_step + 6 * self.acc2_step + self.mid_plat:
+      acc = -self.acc1
     else:
       acc = 0
     return acc
   def get_state(self):
     return np.array([self.v, self.acc])
-car = Vehicle()
-ld = LeadingVehicle()
-ld.reset()
-car.reset()
-car.update(ld.get_acc())
-ld.step()
-next_state, reward, terminated, truncated, _ = car.step(0.4)
-print(next_state, reward, terminated, truncated)
-car.update(ld.get_acc())
-state, _ = ld.step()
-next_state, reward, terminated, truncated, _ = car.step(0.54 + 0.4 + 0.2 * car.rel_d)
-print(next_state, reward, terminated, truncated)
+#car = Vehicle()
+#ld = LeadingVehicle()
+#ld.reset()
+#car.reset()
+#car.update(ld.get_acc())
+#ld.step()
+#next_state, reward, terminated, truncated, _ = car.step(0.4)
+#print(next_state, reward, terminated, truncated)
+#car.update(ld.get_acc())
+#state, _ = ld.step()
+#next_state, reward, terminated, truncated, _ = car.step(0.54 + 0.4 + 0.2 * car.rel_d)
+#print(next_state, reward, terminated, truncated)
