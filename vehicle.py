@@ -121,20 +121,28 @@ class LeadingVehicle(Vehicle):
   def get_acc(self):
     num_steps = self.num_steps
     if num_steps < self.acc1_step:
+      #0->60km/h
       acc = self.acc1
     elif num_steps >= self.plat_steps + self.acc1_step and num_steps < self.plat_steps + self.acc1_step + self.acc2_step:
+      #60->80
       acc = self.acc2
     elif num_steps >= 2*self.plat_steps + self.acc1_step + self.acc2_step and num_steps < 2 * self.plat_steps + self.acc1_step + 2 * self.acc2_step:
+      #80->100
       acc = self.acc2
     elif num_steps >= 3*self.plat_steps + self.acc1_step + 2*self.acc2_step and num_steps < 3 * self.plat_steps + self.acc1_step + 3 * self.acc2_step:
+      #100->120
       acc = self.acc2
     elif num_steps >= 3 * self.plat_steps + self.acc1_step + 3 * self.acc2_step + self.mid_plat and num_steps < 3 * self.plat_steps + self.acc1_step + 4 * self.acc2_step + self.mid_plat:
+      #120->100
       acc = -self.acc2
     elif num_steps >= 4 * self.plat_steps + self.acc1_step + 4 * self.acc2_step + self.mid_plat and num_steps < 4 * self.plat_steps + self.acc1_step + 5 * self.acc2_step + self.mid_plat:
+      #100->80
       acc = -self.acc2
     elif num_steps >= 5 * self.plat_steps + self.acc1_step + 5 * self.acc2_step + self.mid_plat and num_steps < 5 * self.plat_steps + self.acc1_step + 6 * self.acc2_step + self.mid_plat:
+      #80->60
       acc = -self.acc2
     elif num_steps >= 6 * self.plat_steps + self.acc1_step + 6 * self.acc2_step + self.mid_plat and num_steps < 6 * self.plat_steps + 2 * self.acc1_step + 6 * self.acc2_step + self.mid_plat:
+      #60->0
       acc = -self.acc1
     else:
       acc = 0
