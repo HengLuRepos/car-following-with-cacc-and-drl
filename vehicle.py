@@ -109,7 +109,7 @@ class LeadingVehicle(Vehicle):
     self.acc1_step = 10
     self.acc2 = 5.55 / 2   #2s 60->80
     self.acc2_step = 2
-    self.mid_plat = 900 - (self.acc1_step * 2 + self.acc2_step * 6 + self.plat_steps * 6)
+    self.mid_plat = 1000 - (self.acc1_step * 2 + self.acc2_step * 6 + self.plat_steps * 6)
   def step(self):
     self.acc = self.get_acc()
     self.num_steps += 1

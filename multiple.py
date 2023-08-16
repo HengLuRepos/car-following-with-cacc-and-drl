@@ -4,12 +4,15 @@ import gymnasium as gym
 import numpy as np
 from config import Config
 from td3 import TwinDelayedDDPG
-
+NUM_CAR = 3
+def reset(following):
+    for env in following:
+        env.reset()
 def eval():
     ld = LeadingVehicle()
-    following_temp = Vehicle(max_v=33.4)
+    following_temp = [Vehicle(max_v=33.4) for _ in range(NUM_CAR)]
     ld.reset()
-    following_temp.reset()
+    reset(following_temp)
     ep_reward = 0
     done = False
     rel_v = [following_temp.get_state()[1] - following_temp.get_state()[0]]
@@ -39,13 +42,13 @@ def eval():
 
 config = Config()
 lead = LeadingVehicle()
-following = Vehicle(max_v=config.max_v)
-ddpg = TwinDelayedDDPG(following, config)
+following = [Vehicle(max_v=33.4) for _ in range(NUM_CAR)]
+ddpg = TwinDelayedDDPG(Vehicle(max_v=33.4), config)
 episode_reward = 0
 episode_timesteps = 0
 episode_num = 0
 ld_state, _ = lead.reset()
-following_state, _ = following.reset()
+reset(following)
 BETA = 0.5
 cacc = False
 episodic_reward_eval = None
@@ -83,10 +86,10 @@ for t in range(config.max_timestamp):
         episode_reward = 0
         episode_timesteps = 0
         episode_num += 1
-        ddpg.save_model("models/td3-cacc-1000.pt")
+        ddpg.save_model("models/ddpg-cacc-new.pt")
     if (t + 1) % config.eval_freq == 0:
         ep_reward = eval()
         if episodic_reward_eval is None or ep_reward >= episodic_reward_eval:
             episodic_reward_eval = ep_reward
-            ddpg.save_model("models/td3-cacc-best-1000.pt")
+            ddpg.save_model("models/ddpg-cacc-best-new.pt")
         
