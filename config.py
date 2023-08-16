@@ -1,5 +1,5 @@
 class Config:
-    def __init__(self, max_acc = 3, tau=0.8, max_v=30):
+    def __init__(self, max_acc = 3, tau=0.8, max_v=33.4):
         self.buffer_size=None
         self.batch_size=256
         self.gamma = 0.9

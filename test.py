@@ -7,7 +7,7 @@ from td3 import TwinDelayedDDPG
 
 def eval():
     ld = LeadingVehicle()
-    following_temp = Vehicle()
+    following_temp = Vehicle(max_v=33.4)
     ld.reset()
     following_temp.reset()
     ep_reward = 0
@@ -17,7 +17,7 @@ def eval():
     steps = 0
     while not done:
         ld_acc = ld.get_acc()
-        following.update(ld_acc)
+        following_temp.update(ld_acc)
         _, ld_done = ld.step()
         action = ddpg.actor(np2torch(following_temp.get_state())).detach().cpu().numpy()
         next_state, reward, terminated, truncated, _ = following_temp.step(action[0])
@@ -32,14 +32,15 @@ def eval():
     print(f"Episodic reward:{ep_reward:.3f} steps:{steps:.3f}")
     print(f"max rel_dist:{max(rel_d):.3f};  min rel_dist:{min(rel_d):.3f} mean rel_dist:{np.mean(rel_d):.3f}")
     print(f"max rel_v:{max(rel_v):.3f};  min rel_v:{min(rel_v):.3f} mean rel_v:{np.mean(rel_v):.3f}")
+    print(following_temp.get_state())
     print("---------------------------------------")
     return ep_reward
     
 
-config = Config(max_acc=3)
+config = Config()
 lead = LeadingVehicle()
-following = Vehicle()
-ddpg = TwinDelayedDDPG(following, config)
+following = Vehicle(max_v=config.max_v)
+ddpg = DDPG(following, config)
 episode_reward = 0
 episode_timesteps = 0
 episode_num = 0
@@ -82,10 +83,10 @@ for t in range(config.max_timestamp):
         episode_reward = 0
         episode_timesteps = 0
         episode_num += 1
-        ddpg.save_model("models/td3-cacc.pt")
+        ddpg.save_model("models/ddpg-cacc-new.pt")
     if (t + 1) % config.eval_freq == 0:
         ep_reward = eval()
         if episodic_reward_eval is None or ep_reward >= episodic_reward_eval:
             episodic_reward_eval = ep_reward
-            ddpg.save_model("models/td3-cacc-best.pt")
+            ddpg.save_model("models/ddpg-cacc-best-new.pt")
         

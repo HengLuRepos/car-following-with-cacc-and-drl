@@ -10,7 +10,7 @@ class Vehicle:
   observation: distance, velocity, acc, relative v(m/s), relative a, relative d(m)
   action: acceleration
   """
-  def __init__(self, max_acc=3, tau=0.8, max_v=30):
+  def __init__(self, max_acc=3, tau=0.8, max_v=33.3):
     self.max_acc = max_acc
     self.tau = tau
     self.max_v = max_v
@@ -102,7 +102,7 @@ class Vehicle:
 
 #60 80 100 120
 class LeadingVehicle(Vehicle):
-  def __init__(self, plat_steps=120, max_acc=3, tau=0.8, max_v=33.3):
+  def __init__(self, plat_steps=120, max_acc=2.5, tau=0.8, max_v=33.3):
     super().__init__(max_acc=max_acc, tau=tau, max_v=max_v)
     self.plat_steps = plat_steps
     self.acc1 = 16.67 / 10 #10s 0->60km/h
@@ -115,7 +115,7 @@ class LeadingVehicle(Vehicle):
     self.num_steps += 1
     self.distance += self.acc / 2 + self.v
     self.v += self.acc
-    next_state = np.array([round(self.v, 2), self.pre_v, self.acc, self.pre_acc, self.rel_d])
+    next_state = np.array([round(self.v, 2), round(self.pre_v, 2), self.acc, self.pre_acc, self.rel_d])
     truncated = self.num_steps >= 1000
     return next_state, truncated
   def get_acc(self):
