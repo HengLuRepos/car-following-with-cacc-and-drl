@@ -66,8 +66,8 @@ for t in range(config.max_timestamp):
         
     _, ld_done = lead.step()
     next_state, reward, terminated, truncated, _ = following.step(following_action[0])
-    next_acc = lead.get_acc()
-    next_state[3] = next_acc
+    #next_acc = lead.get_acc()
+    #next_state[3] = next_acc
     done = terminated or truncated or ld_done
     ddpg.buffer.remember(state, following_action, reward, next_state, done)
     episode_reward += reward
@@ -83,10 +83,10 @@ for t in range(config.max_timestamp):
         episode_reward = 0
         episode_timesteps = 0
         episode_num += 1
-        ddpg.save_model("models/td3-cacc-1000.pt")
+        ddpg.save_model("models/td3-cacc-single.pt")
     if (t + 1) % config.eval_freq == 0:
         ep_reward = eval()
         if episodic_reward_eval is None or ep_reward >= episodic_reward_eval:
             episodic_reward_eval = ep_reward
-            ddpg.save_model("models/td3-cacc-best-1000.pt")
+            ddpg.save_model("models/td3-cacc-best-single.pt")
         

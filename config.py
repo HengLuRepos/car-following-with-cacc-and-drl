@@ -12,7 +12,7 @@ class Config:
         self.policy_delay=2
         self.seed=0
 
-        self.start_steps = 5000
+        self.start_steps = 1000
         self.max_acc = max_acc
         self.tau_t = tau #time
         self.max_v = max_v
