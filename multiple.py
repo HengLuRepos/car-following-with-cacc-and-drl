@@ -15,6 +15,7 @@ def inference(ld, following):
     for i in range(NUM_CAR):
         following[i].update(pre_acc)
         action = ddpg.actor(np2torch(following[i].get_state())).detach().cpu().numpy()
+        #action = ddpg[i].actor(np2torch(following[i].get_state())).detach().cpu().numpy()
         _, r, terminated, truncated, _ = following[i].step(action[0])
         done = done or terminated or truncated
         pre_acc = action[0]
@@ -56,16 +57,22 @@ def act(ld, following, start=False):
         state = following[i].get_state()
         if start is False:
             action = ddpg.actor.explore(np2torch(state)).detach().cpu().numpy()
+            #action = ddpg[i].actor.explore(np2torch(state)).detach().cpu().numpy()
             cacc_action = np.array([state[0] + 0.2*state[4] + 0.9*state[1]])
             if following[i].try_step(cacc_action[0]) > following[i].try_step(action[0]):
+                #action = (1.0 - BETA) * cacc_action + BETA * action
                 action = cacc_action
+            else:
+                pass
+                #action = (1.0 - BETA) * action + BETA * cacc_action
         else:
             action = np.abs(following[i].action_space.sample())
         next_state, r, terminated, truncated, _ = following[i].step(action[0])
         donei = terminated or truncated
         done = done or donei
         reward += r
-        ddpg.buffer.remember(state, action, reward, next_state, donei)
+        ddpg.buffer.remember(state, action, r, next_state, donei)
+        #ddpg[i].buffer.remember(state, action, r, next_state, donei)
         pre_acc = action[0]
     return reward/NUM_CAR, done
 
@@ -74,6 +81,7 @@ config = Config()
 lead = LeadingVehicle()
 following = [Vehicle(max_v=33.4) for _ in range(NUM_CAR)]
 ddpg = TwinDelayedDDPG(Vehicle(max_v=33.4), config)
+#ddpg = [TwinDelayedDDPG(Vehicle(max_v=33.4), config) for _ in range(NUM_CAR)]
 episode_reward = 0
 episode_timesteps = 0
 episode_num = 0
@@ -96,6 +104,8 @@ for t in range(config.max_timestamp):
 
     if t >= config.start_steps:
         for i in range(config.update_freq):
+            #for agent in ddpg:
+            #    agent.train_iter()
             ddpg.train_iter()
     if done:
         print(f"Total T: {t+1} Episode Num: {episode_num+1} Episode T: {episode_timesteps} Reward: {episode_reward:.3f}")
@@ -105,10 +115,14 @@ for t in range(config.max_timestamp):
         episode_reward = 0
         episode_timesteps = 0
         episode_num += 1
-        ddpg.save_model(f"models/td3-cacc-{NUM_CAR}.pt")
+        ddpg.save_model(f"models/td3-cacc-{NUM_CAR}-new.pt")
+        #for i in range(NUM_CAR):
+        #    ddpg[i].save_model(f"models/td3-cacc-{NUM_CAR}-part-{i+1}.pt")
     if (t + 1) % config.eval_freq == 0:
         ep_reward = eval()
         if episodic_reward_eval is None or ep_reward >= episodic_reward_eval:
             episodic_reward_eval = ep_reward
-            ddpg.save_model(f"models/td3-cacc-{NUM_CAR}-best.pt")
+            ddpg.save_model(f"models/td3-cacc-{NUM_CAR}-best-new.pt")
+            #for i in range(NUM_CAR):
+            #    ddpg[i].save_model(f"models/td3-cacc-{NUM_CAR}-best-part-{i+1}.pt")
         
