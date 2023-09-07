@@ -94,6 +94,9 @@ class Vehicle:
 
     return next_state, reward, terminated, truncated, info
   
+  def wait(self):
+    self.buffer.append(self.get_state())
+  
   def try_step(self, acc):
     rel_acc = acc - self.pre_acc
     rel_v = self.v - self.pre_v
