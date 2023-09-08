@@ -20,7 +20,7 @@ class Vehicle:
     self.fps = 100
     self.dt = 1/self.fps
     self.steps = 0
-    self.buffer = deque(maxlen=latency)
+    self.buffer = deque(maxlen=latency + 1)
     self.action_space = gym.spaces.Box(low=-self.max_acc, 
                                        high=self.max_acc, 
                                        shape=(1,),
@@ -56,10 +56,11 @@ class Vehicle:
     self.steps = 0
     self.pre_v = 0
     self.pre_acc = 0
-    self.pre_dist = self.rel_d
+    self.pre_dist = 0
     state = np.array([self.v, self.pre_v, self.acc, self.pre_acc, self.rel_d])
     info = {'distance': self.distance}
     self.buffer.clear()
+    self.buffer.append(self.get_state())
     return state, info
 
   def update(self, state, dist):
@@ -75,7 +76,7 @@ class Vehicle:
     self.buffer.append(self.get_state())
     self.distance += self.acc * self.dt**2 / 2 + self.v * self.dt
     self.pre_dist += self.pre_acc * self.dt ** 2 / 2 + self.pre_v * self.dt
-    self.rel_d = self.pre_dist - self.distance
+    self.rel_d = self.pre_dist - self.distance + 2
     safe_distance = 2 + self.v * self.tau - self.max_acc * self.tau**2 / 2
     self.v += acc * self.dt
     self.pre_v += self.pre_acc * self.dt
@@ -95,7 +96,7 @@ class Vehicle:
     return next_state, reward, terminated, truncated, info
   
   def wait(self):
-    self.buffer.append(self.get_state())
+    self.step(0.0)
   
   def try_step(self, acc):
     rel_acc = acc - self.pre_acc
@@ -171,3 +172,5 @@ class LeadingVehicle(Vehicle):
     return acc
   def get_state(self):
     return np.array([self.v, 0, self.acc, 0]), self.distance
+car = Vehicle()
+ld = LeadingVehicle()

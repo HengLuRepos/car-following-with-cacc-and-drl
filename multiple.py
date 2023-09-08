@@ -1,5 +1,5 @@
 from ddpg import DDPG, np2torch
-from vehicle import LeadingVehicle, Vehicle
+from vehicle_latency import LeadingVehicle, Vehicle
 import gymnasium as gym
 import numpy as np
 from config import Config
@@ -8,17 +8,17 @@ NUM_CAR = 5
 def reset(following):
     for env in following:
         env.reset()
-def inference(ld, following):
+def inference(ld: LeadingVehicle, following: list[Vehicle]):
     done = False
     reward = 0.0
-    pre_acc = ld
+    pre = ld.buffer[0]
     for i in range(NUM_CAR):
-        following[i].update(pre_acc)
-        action = ddpg.actor(np2torch(following[i].get_state())).detach().cpu().numpy()
+        following[i].update(*pre)
+        pre = following[i].buffer[0]
+        action = ddpg.actor(np2torch(following[i].get_state()[0])).detach().cpu().numpy()
         #action = ddpg[i].actor(np2torch(following[i].get_state())).detach().cpu().numpy()
         _, r, terminated, truncated, _ = following[i].step(action[0])
         done = done or terminated or truncated
-        pre_acc = action[0]
         reward += r
     return reward/NUM_CAR, done
 
@@ -33,8 +33,7 @@ def eval():
     #rel_d = [following_temp.get_state()[4]]
     steps = 0
     while not done:
-        ld_acc = ld.get_acc()
-        reward, done = inference(ld_acc, following_temp)
+        reward, done = inference(ld, following_temp)
         _, ld_done = ld.step()
         ep_reward += reward
         steps += 1
@@ -48,14 +47,19 @@ def eval():
     print("---------------------------------------")
     return ep_reward
     
-def act(ld, following, start=False):
-    pre_acc = ld
+def act(ld: LeadingVehicle, following: list[Vehicle], start=False):
+    pre = ld.buffer[0]
     reward = 0.0
     done = False
     for i in range(NUM_CAR):
-        following[i].update(pre_acc)
-        state = following[i].get_state()
-        if start is False:
+        following[i].update(*pre)
+        pre_dist = pre[1]
+        pre_acc = pre[0][2]
+        pre = following[i].buffer[0]
+        state = following[i].get_state()[0]
+        if pre_dist == 0.0 and pre_acc == 0.0:
+            action = np.array([0.0])
+        elif start is False:
             action = ddpg.actor.explore(np2torch(state)).detach().cpu().numpy()
             #action = ddpg[i].actor.explore(np2torch(state)).detach().cpu().numpy()
             cacc_action = np.array([state[0] + 0.2*state[4] + 0.9*state[1]])
@@ -73,7 +77,6 @@ def act(ld, following, start=False):
         reward += r
         ddpg.buffer.remember(state, action, r, next_state, donei)
         #ddpg[i].buffer.remember(state, action, r, next_state, donei)
-        pre_acc = action[0]
     return reward/NUM_CAR, done
 
 
@@ -93,11 +96,10 @@ cacc = False
 episodic_reward_eval = None
 for t in range(config.max_timestamp):
     episode_timesteps += 1
-    ld_action = lead.get_acc()
     if t < config.start_steps:
-        reward, done = act(ld_action, following, start=True)
+        reward, done = act(lead, following, start=True)
     else:
-        reward, done = act(ld_action, following)
+        reward, done = act(lead, following)
         
     _, ld_done = lead.step()
     done = done or ld_done
@@ -116,14 +118,14 @@ for t in range(config.max_timestamp):
         episode_reward = 0
         episode_timesteps = 0
         episode_num += 1
-        ddpg.save_model(f"models/td3-cacc-{NUM_CAR}-new2.pt")
+        ddpg.save_model(f"models/td3-cacc-{NUM_CAR}-latency.pt")
         #for i in range(NUM_CAR):
         #    ddpg[i].save_model(f"models/td3-cacc-{NUM_CAR}-part-{i+1}.pt")
     if (t + 1) % config.eval_freq == 0:
         ep_reward = eval()
         if episodic_reward_eval is None or ep_reward >= episodic_reward_eval:
             episodic_reward_eval = ep_reward
-            ddpg.save_model(f"models/td3-cacc-{NUM_CAR}-best-new2.pt")
+            ddpg.save_model(f"models/td3-cacc-{NUM_CAR}-best-latency.pt")
             #for i in range(NUM_CAR):
             #    ddpg[i].save_model(f"models/td3-cacc-{NUM_CAR}-best-part-{i+1}.pt")
         
