@@ -4,7 +4,7 @@ from vehicle import LeadingVehicle, Vehicle
 import numpy as np
 from ddpg import DDPG
 import matplotlib.pyplot as plt
-NUM_CAR = 3
+NUM_CAR = 5
 def reset(following):
     for env in following:
         env.reset()
@@ -59,10 +59,10 @@ config = Config()
 lead = LeadingVehicle()
 following = [Vehicle(max_v=33.4) for _ in range(NUM_CAR)]
 ddpg = TwinDelayedDDPG(Vehicle(max_v=33.4), config)
-ddpg.load_model("./models/td3-cacc-2-best-new.pt")
+ddpg.load_model("./models/td3-cacc-4-best-new2.pt")
 #eval(ddpg)
 ep_reward, rel_v, rel_d, steps, pre_v = eval(ddpg)
 rel_v = np.array(rel_v)
 rel_d = np.array(rel_d)
 pre_v = np.array(pre_v)
-np.savez(f"results/td3-cacc-{NUM_CAR}.npz", v=rel_v,d=rel_d, pre_v = pre_v)
+np.savez(f"results/td3-cacc-{NUM_CAR}-original.npz", v=rel_v,d=rel_d, pre_v = pre_v)

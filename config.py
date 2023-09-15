@@ -1,7 +1,7 @@
 class Config:
     def __init__(self, max_acc = 3, tau=0.8, max_v=33.4):
         self.buffer_size=None
-        self.batch_size=512
+        self.batch_size=4000
         self.gamma = 0.9
         self.tau = 0.99
         self.pi_lr=3e-4
@@ -17,7 +17,7 @@ class Config:
         self.tau_t = tau #time
         self.max_v = max_v
 
-        self.max_timestamp = 1000000
+        self.max_timestamp = 100000000
         self.a_low = -self.max_acc
         self.a_high = self.max_acc
         self.eval_freq = 5000

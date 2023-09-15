@@ -96,12 +96,12 @@ cacc = False
 episodic_reward_eval = None
 for t in range(config.max_timestamp):
     episode_timesteps += 1
+    _, ld_done = lead.step()
     if t < config.start_steps:
         reward, done = act(lead, following, start=True)
     else:
         reward, done = act(lead, following)
         
-    _, ld_done = lead.step()
     done = done or ld_done
     episode_reward += reward
 
